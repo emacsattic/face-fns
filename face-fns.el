@@ -5,7 +5,7 @@
 ;; Author: Noah Friedman <friedman@splode.com>
 ;; Maintainer: friedman@splode.com
 
-;; $Id: face-fns.el,v 1.12 2006/09/23 03:14:09 friedman Exp $
+;; $Id: face-fns.el,v 1.14 2009/05/27 21:39:45 friedman Exp $
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -117,10 +117,10 @@ in the same manner as the args to `set-face-attribute'."
           frame nil))
   (cond ((not (facep face)))
         ((consp frame)
-         (custom-set-faces (list face (mapcar (lambda (desc)
-                                                (append desc properties))
-                                              frame))
-                           t))
+         (custom-set-faces
+          (append (list face)
+                  (list (list frame properties))
+                  '(t))))
         ((fboundp 'set-face-attribute)
          (apply 'set-face-attribute face frame properties))
         (t
