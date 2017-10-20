@@ -1,30 +1,45 @@
 ;;; face-fns.el --- face manipulation functions
 
-;; Copyright (C) 1995, 2000, 2002, 2005 Noah S. Friedman
-
 ;; Author: Noah Friedman <friedman@splode.com>
-;; Maintainer: friedman@splode.com
+;; Created: 1995
+;; Public domain.
 
-;; $Id: face-fns.el,v 1.14 2009/05/27 21:39:45 friedman Exp $
-
-;; This program is free software; you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation; either version 2, or (at your option)
-;; any later version.
-;;
-;; This program is distributed in the hope that it will be useful,
-;; but WITHOUT ANY WARRANTY; without even the implied warranty of
-;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-;; GNU General Public License for more details.
-;;
-;; You should have received a copy of the GNU General Public License
-;; along with this program; if not, you can either send email to this
-;; program's maintainer or write to: The Free Software Foundation,
-;; Inc.; 51 Franklin Street, Fifth Floor; Boston, MA 02110-1301, USA.
+;; $Id: face-fns.el,v 1.16 2017/10/14 22:05:28 friedman Exp $
 
 ;;; Commentary:
 ;;; Code:
 
+;; Emacsen prior to emacs 19.29 did not have facep.
+(or (fboundp 'facep)
+    (defun facep (x)
+      "Return t if X is a face name."
+      (and (memq x (face-list)) t)))
+
+(defun color-name-to-xcms-name (name &optional frame)
+  "Convert COLOR string to a string of the form \"rgb:R/G/B\".
+Each of the R, G, and B components is a two-digit hexadecimal value.
+This is one of the 24-bit color syntax forms recognized by X11.
+
+Optional argument FRAME specifies the frame where the color is to be
+displayed.  If FRAME is omitted or nil, use the selected frame."
+  (apply 'format "rgb:%02x/%02x/%02x"
+         (mapcar (lambda (n) (logand 255 n))
+                 (color-values name frame))))
+
+;; It would be nice if there were an efficient way to resolve the hex
+;; values to a readable name if one exists.
+(defun make-less-bright-color (color &optional factor frame)
+  "Return a color name which is 1/FACTOR as bright as COLOR.
+If FACTOR is not specified, the value 2 is assumed."
+  (let ((values (color-values color frame)))
+    (and values
+         (concat "#" (mapconcat
+                      (lambda (x) (format "%02x" x))
+                      (mapcar (lambda (x) (/ (% x 256) (or factor 2)))
+                              (color-values color))
+                      "")))))
+
+
 (defun disable-mode-font-lock (mode)
   "Register MODE as a major mode for which font-lock should not be enabled automatically."
   (interactive "aMajor mode: ")
@@ -49,26 +64,7 @@
              (setq font-lock-global-modes (delq mode font-lock-global-modes))
            (nconc font-lock-global-modes (list mode))))))
 
-;; Emacsen prior to emacs 19.29 did not have facep.
-(or (fboundp 'facep)
-    (defun facep (x)
-      "Return t if X is a face name."
-      (and (memq x (face-list)) t)))
-
-;; It would be nice if there were an efficient way to resolve the hex
-;; values to a readable name if one exists.
-;;;###autoload
-(defun make-less-bright-color (color &optional factor frame)
-  "Return a color name which is 1/FACTOR as bright as COLOR.
-If FACTOR is not specified, the value 2 is assumed."
-  (let ((values (color-values color frame)))
-    (and values
-         (concat "#" (mapconcat
-                      (lambda (x) (format "%02x" x))
-                      (mapcar (lambda (x) (/ (% x 256) (or factor 2)))
-                              (color-values color))
-                      "")))))
-
+
 ;;;###autoload
 (defun delete-face-attributes (face &optional frame &rest properties)
   "From FACE, remove PROPERTIES on FRAME.
@@ -89,7 +85,7 @@ a frame object\), all current and future frames are affected."
       (setq properties (cdr properties)))
     (apply 'override-face-attributes face frame attrlist)))
 
-(defvar override-face-attributes-settor-alist
+(defconst override-face-attributes-settor-alist
   '((:background    . set-face-background)
     (:bold          . set-face-bold-p)
     (:font          . set-face-font)
@@ -112,6 +108,7 @@ If FRAME is actually a display spec, the associated
 
 PROPERTIES is a sequence of the form \(:attr1 value1 :attr2 value2 ...\)
 in the same manner as the args to `set-face-attribute'."
+  (declare (indent 2))
   (unless (or (null frame) (consp frame) (framep frame))
     (setq properties (cons frame properties)
           frame nil))
@@ -129,8 +126,6 @@ in the same manner as the args to `set-face-attribute'."
              (funcall (or (cdr (assq (nth 0 properties) settors)) 'ignore)
                       face (nth 1 properties) frame)
              (setq properties (cdr (cdr properties))))))))
-
-(put 'override-face-attributes 'lisp-indent-function 2)
 
 (provide 'face-fns)
 
